@@ -3,12 +3,45 @@
 
 import codecs
 import datetime
-# import enum
 import os
+import sys
 import time
 
 import schedule
+import telebot
 
+
+DEBUG			:	bool	=	False
+
+TOKEN_FILE		:	str
+CHAT_ID_FILE	:	str
+
+def get_token() -> str | int:
+	try:
+		return open(TOKEN_FILE, 'r').read()
+	except FileNotFoundError:
+		return os.getenv('BOT_TOKEN')
+	
+def get_chat_id() -> str | int:
+	try:
+		return open(CHAT_ID_FILE, 'r').read()
+	except FileNotFoundError:
+		return os.getenv('BOT_CHAT_ID')
+
+
+class Bot:
+	__token	:	str
+	bot		:	telebot.TeleBot
+
+	def __init__(self) -> None:
+		self.__token = get_token()
+		self.bot = telebot.TeleBot(self.__token)
+
+	def send_message(self, _chat_id: str, _message: str) -> None:
+		self.bot.send_message(_chat_id, _message)
+
+
+TELEGRAM_BOT	:	Bot
 
 CURRENT_YEAR		:	int	=	datetime.date.today().year
 SCHEDULE_TIMEOUT	:	int =	5
@@ -19,7 +52,6 @@ BIRTHDAYS_FILE_DATE_SEPARATOR	:	str	=	'.'
 
 HAPPY_BIRTHDAY_MESSAGE_FILE_ONE				:	str	=	'./happy_birthday_message_one.txt'
 HAPPY_BIRTHDAY_MESSAGE_FILE_MANY			:	str	=	'./happy_birthday_message_many.txt'
-
 HAPPY_BIRTHDAY_MESSAGE_FILE_PERSON_TAG		:	str	=	'%PERSON%'
 
 
@@ -74,7 +106,8 @@ def send_happy_birthday(_dates: list[Birthday], _is_many: bool):
 		message_half_a, message_half_b = message.split(HAPPY_BIRTHDAY_MESSAGE_FILE_PERSON_TAG)
 		message = f"{message_half_a}{_dates.person} {_dates.tg_link}{message_half_b}"
 	
-	print(message)
+	# print(message)
+	TELEGRAM_BOT.send_message(get_chat_id(), message)
 
 
 def job():
@@ -84,17 +117,12 @@ def job():
 			todays_birthdays.append(day)
 	send_happy_birthday(todays_birthdays, len(todays_birthdays) > 1)
 
-# schedule.every(1).seconds.do(job)
-# schedule.every().hour.do(job)
-# schedule.every().day.at("10:30").do(job)
-# schedule.every().monday.do(job)
-# schedule.every().wednesday.at("13:15").do(job)
-# schedule.every().day.at("12:42", "Europe/Amsterdam").do(job)
-# schedule.every().minute.at(":17").do(job)
 
-if __name__ == '__main__':
-	#	How often to repeat the job
-	schedule.every().day.at("08:50", "Europe/Moscow").do(job)
+def main():
+	if DEBUG:
+		schedule.every(5).seconds.do(job)
+	else:
+		schedule.every().day.at("08:50", "Europe/Moscow").do(job)
 
 	is_running = True
 
@@ -102,3 +130,19 @@ if __name__ == '__main__':
 	while is_running:
 		schedule.run_pending()
 		time.sleep(SCHEDULE_TIMEOUT)
+
+
+
+if __name__ == '__main__':
+	argv = sys.argv
+	if len(argv) > 1:
+		try:
+			DEBUG = bool(argv[1])
+		except:
+			print("Unknown argv ignored.")
+		finally:
+			TOKEN_FILE = '.DEBUG_token' if DEBUG else 'token'
+			CHAT_ID_FILE = '.DEBUG_chat_id' if DEBUG else 'chat_id'
+			TELEGRAM_BOT = Bot()
+
+	main()
