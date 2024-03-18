@@ -10,11 +10,16 @@ import time
 import schedule
 import telebot
 
+from Citrine import console
+
 
 DEBUG			:	bool	=	False
 
-TOKEN_FILE		:	str
-CHAT_ID_FILE	:	str
+TOKEN_FILE			:	str		=	'token'
+TOKEN_FILE_DEBUG	:	str		=	'.DEBUG_token'
+CHAT_ID_FILE		:	str		=	'chat_id'
+CHAT_ID_FILE_DEBUG	:	str		=	'.DEBUG_chat_id'
+
 
 def get_token() -> str | int:
 	try:
@@ -56,14 +61,16 @@ HAPPY_BIRTHDAY_MESSAGE_FILE_PERSON_TAG		:	str	=	'%PERSON%'
 
 
 class Birthday:
+	group	:	str
 	date	:	datetime.date
 	person	:	str
 	tg_link	:	str
 
 	def __init__(self, _birthday_line: str) -> None:
-		temp_date, temp_person, temp_tg_link = _birthday_line.split(BIRTHDAYS_FILE_LINE_SEPARATOR)
+		temp_group, temp_date, temp_person, temp_tg_link = _birthday_line.split(BIRTHDAYS_FILE_LINE_SEPARATOR)
 		temp_day, temp_month = [int(x) for x in temp_date.split(BIRTHDAYS_FILE_DATE_SEPARATOR)]
 
+		self.group = temp_group
 		self.date = datetime.date(CURRENT_YEAR, temp_month, temp_day)
 		self.person = temp_person
 		self.tg_link = temp_tg_link
@@ -78,7 +85,7 @@ class Birthday:
 def load_birthdays(_file: str = BIRTHDAYS_FILE) -> list[Birthday]:
 	with codecs.open(filename=_file, encoding='utf-8') as bdf:
 		dates = list()
-		bdf_lines = bdf.readlines()
+		bdf_lines = bdf.readlines()[1:]
 		for line in bdf_lines:
 			dates.append(Birthday(line[:-1]))
 	return dates
@@ -126,7 +133,7 @@ def main():
 
 	is_running = True
 
-	print("I am ready to work!")
+	console.alert("I am ready to work!")
 	while is_running:
 		schedule.run_pending()
 		time.sleep(SCHEDULE_TIMEOUT)
@@ -136,13 +143,16 @@ def main():
 if __name__ == '__main__':
 	argv = sys.argv
 	if len(argv) > 1:
-		try:
-			DEBUG = bool(argv[1])
-		except:
-			print("Unknown argv ignored.")
-		finally:
-			TOKEN_FILE = '.DEBUG_token' if DEBUG else 'token'
-			CHAT_ID_FILE = '.DEBUG_chat_id' if DEBUG else 'chat_id'
-			TELEGRAM_BOT = Bot()
+		if argv[1]!='DEBUG':
+			console.alert("Unknown argv ignored.")
+		else:
+			console.alert("DEBUG MODE : ON")
+			DEBUG = True
+		
+		if DEBUG:
+			TOKEN_FILE = TOKEN_FILE_DEBUG
+			CHAT_ID_FILE = CHAT_ID_FILE_DEBUG
+
+		TELEGRAM_BOT = Bot()
 
 	main()
