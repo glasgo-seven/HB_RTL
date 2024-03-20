@@ -5,7 +5,6 @@ import codecs
 import datetime
 import os
 import sys
-import datetime
 import time
 
 import schedule
@@ -14,10 +13,6 @@ import telebot
 from Citrine import console
 
 from settings import *
-
-
-DEBUG			:	bool	=	False
-DEBUG_ALERT		:	bool	=	False
 
 
 def get_token() -> str | int:
@@ -73,7 +68,7 @@ class Birthday:
 
 
 def load_birthdays(_file: str = BIRTHDAYS_FILE) -> list[Birthday]:
-	with codecs.open(filename=_file, encoding='utf-8') as bdf:
+	with codecs.open(filename=_file, encoding=FILE_ENCODING) as bdf:
 		dates = list()
 		bdf_lines = bdf.readlines()[1:]
 		for line in bdf_lines:
@@ -82,7 +77,7 @@ def load_birthdays(_file: str = BIRTHDAYS_FILE) -> list[Birthday]:
 
 def load_birthday_message(_file: str) -> str:
 	file_size = os.stat(_file).st_size
-	with codecs.open(filename=_file, encoding='utf-8') as hbm:
+	with codecs.open(filename=_file, encoding=FILE_ENCODING) as hbm:
 		message = hbm.read(file_size)
 	return message
 
@@ -112,9 +107,14 @@ def job():
 	for day in load_birthdays():
 		if day.date == datetime.date.today():
 			todays_birthdays.append(day)
-	console.notification(f"LOCAL_TIME: {datetime.date.today()} | Sending HBs to the [{' '.join(todays_birthdays)}].")
-	send_happy_birthday(todays_birthdays, len(todays_birthdays) > 1)
-	console.notification("Success!")
+			
+	CONSOLE_NOTIFICATION_SYSTEM_TIME()
+	if todays_birthdays != []:
+		CONSOLE_NOTIFICATION_BIRTHDAYS_FOUND(todays_birthdays)
+		send_happy_birthday(todays_birthdays, len(todays_birthdays) > 1)
+		CONSOLE_NOTIFICATION_BIRTHDAYS_SEND()
+	else:
+		CONSOLE_NOTIFICATION_BIRTHDAYS_NOT_FOUND()
 
 
 def main():
@@ -123,35 +123,31 @@ def main():
 	else:
 		_job = schedule.every().day.at(ALERT_TIME, ALERT_TIMEZONE).do(job)
 
-	console.alert(f"Next run on: {_job.next_run} LOCAL_TIME.")
+	CONSOLE_ALERT_NEXT_RUN(_job.next_run)
 
 	is_running = True
 
-	console.alert("I am ready to work!")
+	CONSOLE_ALERT_BOT_READY()
 	
 	while is_running:
 		schedule.run_pending()
 		time.sleep(SCHEDULE_TIMEOUT)
 
-	console.alert("The work is over!")
+	CONSOLE_ALERT_BOT_OVER()
 
 
 
 if __name__ == '__main__':
 	argv = sys.argv
 	if len(argv) > 1:
-		if argv[1] not in ['DEBUG', 'DEBUG_ALERT']:
-			console.alert("Unknown argv ignored.")
+		MODE = argv[1]
+		if MODE not in DEBUG_MODE.keys():
+			CONSOLE_ALERT_UNKNOWN_ARGV()
 		else:
-			match argv[1]:
-				case 'DEBUG':
-					console.alert("DEBUG MODE : ON")
-					DEBUG = True
-				case 'DEBUG_ALERT':
-					console.alert("DEBUG_ALERT MODE : ON")
-					DEBUG_ALERT = True
+			DEBUG_MODE[MODE][ALERT]()
+			DEBUG_MODE[MODE][ENABLED] = True
 
-		if DEBUG:
+		if DEBUG_MODE[DEBUG][ENABLED]:
 			TOKEN_FILE = TOKEN_FILE_DEBUG
 			CHAT_ID_FILE = CHAT_ID_FILE_DEBUG
 
