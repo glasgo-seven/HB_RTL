@@ -5,6 +5,7 @@ import codecs
 import datetime
 import os
 import sys
+import datetime
 import time
 
 import schedule
@@ -12,26 +13,24 @@ import telebot
 
 from Citrine import console
 
+from settings import *
+
 
 DEBUG			:	bool	=	False
-
-TOKEN_FILE			:	str		=	'token'
-TOKEN_FILE_DEBUG	:	str		=	'.DEBUG_token'
-CHAT_ID_FILE		:	str		=	'chat_id'
-CHAT_ID_FILE_DEBUG	:	str		=	'.DEBUG_chat_id'
+DEBUG_ALERT		:	bool	=	False
 
 
 def get_token() -> str | int:
 	try:
 		return open(TOKEN_FILE, 'r').read()
 	except FileNotFoundError:
-		return os.getenv('BOT_TOKEN')
+		return os.getenv(TOKEN_ENV_VAR)
 	
 def get_chat_id() -> str | int:
 	try:
 		return open(CHAT_ID_FILE, 'r').read()
 	except FileNotFoundError:
-		return os.getenv('BOT_CHAT_ID')
+		return os.getenv(CHAT_ID_ENV_VAR)
 
 
 class Bot:
@@ -39,26 +38,17 @@ class Bot:
 	bot		:	telebot.TeleBot
 
 	def __init__(self) -> None:
-		self.__token = get_token()
+		token = get_token()
+		self.__token = token
 		self.bot = telebot.TeleBot(self.__token)
 
 	def send_message(self, _chat_id: str, _message: str) -> None:
 		self.bot.send_message(_chat_id, _message)
 
 
-TELEGRAM_BOT	:	Bot
+TELEGRAM_BOT	:	Bot	=	Bot()
 
-CURRENT_YEAR		:	int	=	datetime.date.today().year
-SCHEDULE_TIMEOUT	:	int =	5
-
-BIRTHDAYS_FILE					:	str	=	'./birthdays.csv'
-BIRTHDAYS_FILE_LINE_SEPARATOR	:	str	=	','
-BIRTHDAYS_FILE_DATE_SEPARATOR	:	str	=	'.'
-
-HAPPY_BIRTHDAY_MESSAGE_FILE_ONE				:	str	=	'./happy_birthday_message_one.txt'
-HAPPY_BIRTHDAY_MESSAGE_FILE_MANY			:	str	=	'./happy_birthday_message_many.txt'
-HAPPY_BIRTHDAY_MESSAGE_FILE_PERSON_TAG		:	str	=	'%PERSON%'
-
+CURRENT_YEAR	:	int	=	datetime.date.today().year
 
 class Birthday:
 	group	:	str
@@ -122,37 +112,47 @@ def job():
 	for day in load_birthdays():
 		if day.date == datetime.date.today():
 			todays_birthdays.append(day)
+	console.notification(f"LOCAL_TIME: {datetime.date.today()} | Sending HBs to the [{' '.join(todays_birthdays)}].")
 	send_happy_birthday(todays_birthdays, len(todays_birthdays) > 1)
+	console.notification("Success!")
 
 
 def main():
-	if DEBUG:
-		schedule.every(5).seconds.do(job)
+	if DEBUG_ALERT or DEBUG:
+		_job = schedule.every(SCHEDULE_TIMEOUT).seconds.do(job)
 	else:
-		schedule.every().day.at("08:50", "Europe/Moscow").do(job)
+		_job = schedule.every().day.at(ALERT_TIME, ALERT_TIMEZONE).do(job)
+
+	console.alert(f"Next run on: {_job.next_run} LOCAL_TIME.")
 
 	is_running = True
 
 	console.alert("I am ready to work!")
+	
 	while is_running:
 		schedule.run_pending()
 		time.sleep(SCHEDULE_TIMEOUT)
+
+	console.alert("The work is over!")
 
 
 
 if __name__ == '__main__':
 	argv = sys.argv
 	if len(argv) > 1:
-		if argv[1]!='DEBUG':
+		if argv[1] not in ['DEBUG', 'DEBUG_ALERT']:
 			console.alert("Unknown argv ignored.")
 		else:
-			console.alert("DEBUG MODE : ON")
-			DEBUG = True
-		
+			match argv[1]:
+				case 'DEBUG':
+					console.alert("DEBUG MODE : ON")
+					DEBUG = True
+				case 'DEBUG_ALERT':
+					console.alert("DEBUG_ALERT MODE : ON")
+					DEBUG_ALERT = True
+
 		if DEBUG:
 			TOKEN_FILE = TOKEN_FILE_DEBUG
 			CHAT_ID_FILE = CHAT_ID_FILE_DEBUG
-
-		TELEGRAM_BOT = Bot()
 
 	main()
